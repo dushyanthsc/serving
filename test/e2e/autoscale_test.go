@@ -33,6 +33,7 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	zipkin "github.com/pkg/test/zipkin"
 )
 
 const (
@@ -102,6 +103,8 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration) 
 						ctx.logger.Infof("non 200 response %v", res.StatusCode)
 						ctx.logger.Infof("response headers: %v", res.Header)
 						ctx.logger.Infof("response body: %v", string(res.Body))
+
+						client.LogZipkinTrace(res.Header.Get(zipkin.ZipkinTraceIDHeader))
 						continue
 					}
 					mux.Lock()

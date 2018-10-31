@@ -11,6 +11,7 @@ import (
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/test"
+	zipkin "github.com/pkg/test/zipkin"
 )
 
 const (
@@ -27,6 +28,11 @@ func Setup(t *testing.T) *test.Clients {
 	if err != nil {
 		t.Fatalf("Couldn't initialize clients: %v", err)
 	}
+
+	err = zipkin.SetupZipkinTracing(clients.KubeClient.Kube)
+	if err != nil {
+		t.Fatalf("Failed in Zipkin Tracing setup: %v", err)
+	}
 	return clients
 }
 
@@ -34,6 +40,11 @@ func Setup(t *testing.T) *test.Clients {
 func TearDown(clients *test.Clients, names test.ResourceNames, logger *logging.BaseLogger) {
 	if clients != nil && clients.ServingClient != nil {
 		clients.ServingClient.Delete([]string{names.Route}, []string{names.Config}, []string{names.Service})
+	}
+
+	err := zipkin.CleanupZipkinTracingSetup()
+	if err != nil {
+		logger.Error("Failed cleaning up Zipkin setup: %v", err)
 	}
 }
 
