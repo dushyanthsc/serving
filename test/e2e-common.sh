@@ -38,6 +38,11 @@ INSTALL_CUSTOM_YAMLS=""
 
 # Parse our custom flags.
 function parse_flags() {
+  # Depending on whether --custom-yamls is provided or not --install-monitoring could $1 or $3
+  if [[ "'$*'" == *"--install-monitoring"* ]]; then
+    readonly INSTALL_MONITORING=1
+   fi
+  # If custom-yamls is set then it should alwasy be first param followed by comma separated yaml files.
   if [[ "$1" == "--custom-yamls" ]]; then
     [[ -z "$2" ]] && fail_test "Missing argument to --custom-yamls"
     # Expect a list of comma-separated YAMLs.
@@ -73,9 +78,10 @@ function build_knative_from_source() {
 # Parameters: $1 - Istio CRD YAML file
 #             $2 - Istio YAML file
 #             $3 - Knative Serving YAML file
+#             $4 - Knative Monitoring YAML file
 function install_knative_serving() {
   if [[ -z "${INSTALL_CUSTOM_YAMLS}" ]]; then
-    install_knative_serving_standard "$1" "$2" "$3"
+    install_knative_serving_standard "$1" "$2" "$3" "$4"
     return
   fi
   echo ">> Installing Knative serving from custom YAMLs"
@@ -93,16 +99,19 @@ function install_knative_serving() {
 # Parameters: $1 - Istio CRD YAML file
 #             $2 - Istio YAML file
 #             $3 - Knative Serving YAML file
+#             $4 - Knative Monitoring YAML file
 function install_knative_serving_standard() {
   INSTALL_ISTIO_CRD_YAML=$1
   INSTALL_ISTIO_YAML=$2
   INSTALL_RELEASE_YAML=$3
+  INSTALL_MONITORING_YAML=$4
   if [[ -z "${INSTALL_ISTIO_CRD_YAML}" ]]; then
     build_knative_from_source
     INSTALL_ISTIO_CRD_YAML="${ISTIO_CRD_YAML}"
     INSTALL_ISTIO_YAML="${ISTIO_YAML}"
     # TODO(#2122): Install monitoring as well once we have e2e testing for it.
     INSTALL_RELEASE_YAML="${SERVING_YAML}"
+    INSTALL_MONITORING_YAML="${MONITORING_YAML}"
   fi
 
   echo ">> Installing Knative serving"
@@ -159,6 +168,11 @@ function install_knative_serving_standard() {
   wait_until_pods_running knative-serving || return 1
   wait_until_pods_running istio-system || return 1
   wait_until_service_has_external_ip istio-system istio-ingressgateway
+
+  if [[ -n "${INSTALL_MONITORING}" ]]; then
+    kubectl apply -f "${INSTALL_MONITORING_YAML}" || return 1
+    wait_until_pods_running knative-monitoring || return 1
+  fi
 }
 
 # Uninstalls Knative Serving from the current cluster.
@@ -181,6 +195,10 @@ function knative_teardown() {
     echo "Knative Build Pipeline YAML: ${INSTALL_PIPELINE_DIR}"
     echo ">> Bringing down Serving"
     ko delete --ignore-not-found=true -f "${INSTALL_RELEASE_YAML}" || return 1
+    if [[ -n "${INSTALL_MONITORING}" ]]; then
+      echo ">> Bringing down monitoring"
+      ko delete --ignore-not-found=true -f "${INSTALL_MONITORING_YAML}" || return 1
+    fi
     echo ">> Bringing down Build"
     ko delete --ignore-not-found=true -f "${INSTALL_BUILD_DIR}" || return 1
     ko delete --ignore-not-found=true -f "${INSTALL_PIPELINE_DIR}" || return 1

@@ -40,6 +40,7 @@ type ServingEnvironmentFlags struct {
 	ResolvableDomain bool   // Resolve Route controller's `domainSuffix`
 	DockerRepo       string // Docker repo (defaults to $KO_DOCKER_REPO)
 	Tag              string // Test images version tag
+	MonitoringInstalled bool // Flag to indicate if monitoring was installed
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -53,6 +54,9 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 
 	flag.StringVar(&f.Tag, "tag", "latest",
 		"Provide the version tag for the test images.")
+
+	flag.BoolVar(&f.MonitoringInstalled, "monitoringinstalled", false,
+		"Set this flag if knative monitoring has been installed in the cluster")
 
 	flag.Parse()
 	flag.Set("alsologtostderr", "true")
